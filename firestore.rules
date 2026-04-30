@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Project Helpers ---
+    function getProject(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data;
+    }
+
+    function isProjectMember(projectId) {
+      return isSignedIn() && request.auth.uid in getProject(projectId).memberIds;
+    }
+
+    function isProjectOwner(projectId) {
+      return isSignedIn() && getProject(projectId).ownerId == request.auth.uid;
+    }
+
+    function isGlobalAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    }
+
+    // --- User Rules ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['id', 'name', 'email', 'role', 'createdAt']) &&
+               data.keys().size() == 5 &&
+               data.id == userId &&
+               data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+               data.email is string && data.email.size() >= 3 && data.email.size() <= 255 &&
+               data.role in ['Admin', 'Member'] &&
+               data.createdAt == request.time;
+      }
+
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (
+        resource.data.email == request.auth.token.email || 
+        (request.query.limit != null && request.query.limit <= 5)
+      ); 
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name']) &&
+                    incoming().name is string && incoming().name.size() >= 1;
+    }
+
+    // --- Project Rules ---
+    match /projects/{projectId} {
+      function isValidProject(data) {
+        return data.keys().hasAll(['id', 'name', 'description', 'ownerId', 'memberIds', 'createdAt']) &&
+               data.keys().size() == 6 &&
+               isValidId(data.id) &&
+               data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+               data.description is string && data.description.size() <= 1000 &&
+               data.ownerId is string &&
+               data.memberIds is list && data.memberIds.size() >= 1;
+      }
+
+      // Any signed-in user can view projects (Recruiter access)
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidProject(incoming()) && incoming().ownerId == request.auth.uid;
+      allow update: if (isProjectOwner(projectId) || isGlobalAdmin() || (isSignedIn() && request.auth.uid in existing().memberIds)) && (
+        // Action: Update details or members
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'memberIds']) &&
+        incoming().name is string && incoming().name.size() >= 1 &&
+        incoming().memberIds is list && incoming().memberIds.size() >=1 &&
+        incoming().ownerId == existing().ownerId // Immutable owner
+      );
+      allow delete: if isProjectOwner(projectId) || isGlobalAdmin();
+    }
+
+    // --- Task Rules ---
+    match /projects/{projectId}/tasks/{taskId} {
+      function isValidTask(data) {
+        return data.keys().hasAll(['id', 'title', 'description', 'projectId', 'assigneeId', 'dueDate', 'priority', 'status', 'creatorId', 'createdAt']) &&
+               data.keys().size() == 10 &&
+               isValidId(data.id) &&
+               data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+               data.description is string && data.description.size() <= 2000 &&
+               data.projectId == projectId &&
+               data.assigneeId is string &&
+               data.priority in ['Low', 'Medium', 'High'] &&
+               data.status in ['Todo', 'InProgress', 'Done'] &&
+               data.creatorId == request.auth.uid &&
+               data.createdAt == request.time;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isProjectMember(projectId) && isValidTask(incoming());
+      allow update: if isProjectMember(projectId) && (
+        // Action: Full update (Owner/Creator)
+        (isProjectOwner(projectId) || existing().creatorId == request.auth.uid) && (
+           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'assigneeId', 'dueDate', 'priority', 'status'])
+        ) ||
+        // Action: Status update (Assignee)
+        (existing().assigneeId == request.auth.uid) && (
+           incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+        )
+      );
+      allow delete: if isProjectOwner(projectId) || existing().creatorId == request.auth.uid;
+    }
+  }
+}
