@@ -4,8 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "start": "npx serve -s dist -l $PORT"
+    "build": "vite build"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
