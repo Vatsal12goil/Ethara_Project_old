@@ -73,3 +73,7 @@ Ethara_Project/
 - UI/UX Principles
 - Modular Code Structure
 
+
+---
+## Live Demo: https://etharaproject-production-458d.up.railway.app/
+
