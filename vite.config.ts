@@ -23,6 +23,7 @@ export default defineConfig(({mode}) => {
     preview: {
       host: "0.0.0.0",
       port: parseInt(process.env.PORT || "8080"),
+      allowedHosts: true,
     },
   };
 });
