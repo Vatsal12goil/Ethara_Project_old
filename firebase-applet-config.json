@@ -1,10 +1,9 @@
 {
-  "projectId": "ai-studio-applet-webapp-dd22f",
-  "appId": "1:820385469415:web:79718df55b571dd0916342",
-  "apiKey": "AIzaSyDhcqwPqGfiI7cC5qutapKY_RZ-KOKVdcs",
-  "authDomain": "ai-studio-applet-webapp-dd22f.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-b39689d7-1332-441b-99d9-181f29add4aa",
-  "storageBucket": "ai-studio-applet-webapp-dd22f.firebasestorage.app",
-  "messagingSenderId": "820385469415",
-  "measurementId": ""
+  "apiKey": "AIzaSyAOEcm1wkd0SuJVo3RoVFPKx_zgBo36peY",
+  "authDomain": "ethara-ai-1003e.firebaseapp.com",
+  "projectId": "ethara-ai-1003e",
+  "storageBucket": "ethara-ai-1003e.firebasestorage.app",
+  "messagingSenderId": "221551618102",
+  "appId": "1:221551618102:web:b782972082181cfb2c9097",
+  "measurementId": "G-86M3VYVHF5"
 }
